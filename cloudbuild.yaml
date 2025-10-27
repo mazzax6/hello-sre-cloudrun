@@ -1,0 +1,28 @@
+# Variables we reuse
+substitutions:
+  _REGION: "europe-west2"
+  _SERVICE: "hello-sre"
+
+steps:
+  # 1) Build the Docker image
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      ["build","-t","${_REGION}-docker.pkg.dev/$PROJECT_ID/apps/${_SERVICE}:$SHORT_SHA","."]
+  # 2) Push to Artifact Registry (your 'apps' repo in europe-west2)
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      ["push","${_REGION}-docker.pkg.dev/$PROJECT_ID/apps/${_SERVICE}:$SHORT_SHA"]
+  # 3) Deploy to your existing Cloud Run service in europe-west2
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    entrypoint: gcloud
+    args:
+      ["run","deploy","${_SERVICE}",
+       "--image","${_REGION}-docker.pkg.dev/$PROJECT_ID/apps/${_SERVICE}:$SHORT_SHA",
+       "--region","${_REGION}",
+       "--platform","managed",
+       "--allow-unauthenticated",
+       "--port","8080",
+       "--set-env-vars","SERVICE_NAME=${_SERVICE},GOOGLE_CLOUD_REGION=${_REGION}"]
+
+images:
+  - "${_REGION}-docker.pkg.dev/$PROJECT_ID/apps/${_SERVICE}:$SHORT_SHA"
